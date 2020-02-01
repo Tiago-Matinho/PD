@@ -48,6 +48,34 @@ let rec check_line clues solution =
 					else false
 				else false );;
 
+(*************************************************************************)
+
+let rec build_collum n length solution =
+	match solution with
+	| [] -> []
+	| h::t-> let jumped_first = (jump_n n solution) in
+		let jumped_sec = (jump_n (length-n) jumped_first) in
+			match jumped_first with
+		 	| [] -> []
+		 	| h2::_ -> h2::(build_collum n length jumped_sec);; 
+
+
+let rec build_collum_all n length solution =
+	if n == length then []
+	else (build_collum n length solution)::(build_collum_all (n+1) length solution);;
+
+
+let rec check_collums clues solution =
+	match clues with
+	| [] ->( match solution with
+		| [] -> true
+		| _ -> false)
+	| ci::cf ->( match solution with
+		| [] -> false
+		| si::sf -> if (check_line ci si) then (check_collums cf sf) else false);; 
+
+
+(*************************************************************************)
 
 
 let rec n_of_x_list n x =
@@ -63,6 +91,7 @@ let rec added_clues = function
 
 let rec added_spaces = function
 	| [] -> 0
+	| h::[] -> 0
 	| h::t -> 1+(added_spaces t);;
 
 
@@ -82,26 +111,131 @@ let rec simple_permutation spaces clue m =
 			let new_spaces = spaces - clue in
 			((n_of_x_list m 0) @ (n_of_x_list clue 1) @ (n_of_x_list new_spaces 0)) :: (simple_permutation (spaces-1) clue (m+1));;
 
-(*
-let rec permutation spaces n m clues solution =
+
+let rec first_per block n a =
+	if a > n then []
+	else
+	let calc = n-a in
+	((n_of_x_list a 0) @ (n_of_x_list calc 1) @ block @ (n_of_x_list a 1) @ (n_of_x_list calc 0)) :: (first_per block n (a+1));; 
+
+
+let rec permutation clues size_left n =
+	match clues with
+	| [] -> [[]]
+	| pi::[] -> (simple_permutation size_left pi 0)
+	| pi::pf -> let new_size = size_left -(n+pi+1) and added = ((added_clues pf)+(added_spaces pf)) in
+		if (new_size < added) then [[2]]
+		else let new_sol = (n_of_x_list n 0) @ (n_of_x_list pi 1) @ [0] and
+			next = (permutation pf new_size 0) in
+			(add_on_tail new_sol next)@(permutation clues size_left (n+1));;
+
+
+let rec has_two = function
+	| [] -> false
+	| h::t -> if h=2 then true else (has_two t);;
+
+
+let rec remove_permutation = function
+	| [] -> []
+	| h::t -> if(has_two h) then remove_permutation t else h::(remove_permutation t);;
+
+
+let full_perm clues size_left = (remove_permutation(permutation clues size_left 0));;
+
+
+let rec all_perms clues size =
 	match clues with
 	| [] -> []
-	| h::[] ->(
-			if (m+h)>spaces
-				then [solution]
-			else
-				let new_solution = (n_of_x_list m 0) @ (n_of_x_list h 1) @ (n_of_x_list (spaces-(m+h)) 0) in
-				[solution :: new_solution] :: (permutation spaces n (m+1) clues solution)
-			)
+	| h::t -> (full_perm h size)::(all_perms t size);;
 
-	| h::t ->(
-			if (n+h)>spaces
-				then [solution]
-			else
-				let new_spaces = spaces-(n+h+1)
-				and new_solution = [(n_of_x_list n 0) @ (n_of_x_list h 1) @ (n_of_x_list 1 0)] in
-				solution :: (permutation new_spaces (n+1) 0 t new_solution)
-			)
-;;
 
+let rec get_n n = function
+	| [] -> [2]
+	| h::t -> (if n==0 then h else(get_n (n-1) t));;
+
+
+(*************************************************************************)
+
+let rec size_of = function
+	| [] -> 0
+	| h::t -> 1+(size_of t);;
+
+
+let rec all_perms_line n solution =
+	match solution with
+	| [] -> []
+	| h::[] -> h
+	| h::t -> 	let size = (size_of h) in
+				if n > size then []
+				else
+					let temp = (get_n n h) in
+					let added = (add_on_tail temp (all_perms_line 0 t)) in
+					added@(all_perms_line (n+1) solution);;
+
+
+(*************************************************************************)
+
+
+let print_aux n = (if n==0 then (print_string " .") else (print_string " X"));;
+	
+
+let rec print_line length = function
+	| [] -> print_string "\n"
+	| h::t -> print_aux h ; (print_line length t);;
+
+(*
+let rec print_new length solution =
+	match solution with
+	| [] -> print_string "\n"
+	| h::t -> (print_line length 0 solution);; (print_new length (jump_n length solution));;
 *)
+
+let rec print length solution =
+	match solution with
+	| [] -> print_string "\nDone!\n"
+	| h::t -> print_line length h ; print length t;;
+
+
+let rec list_until n = function
+	| [] -> []
+	| h::t -> if n==0 then [] else h::(list_until (n-1) t);;
+
+
+let rec build_matrix length solution = 
+	match solution with
+	| [] -> []
+	| h::t -> (list_until length solution) :: (build_matrix length (jump_n length solution));;
+
+
+(*************************************************************************)
+
+
+let puzzle_aux clues line width =
+	let transposed = (build_collum_all 0 width line) in
+	(check_collums clues transposed);; 
+
+
+let rec check_all_perms clues perms width =
+	match perms with
+	| [] -> print_string "No solution\n"
+	| h::t ->( if (puzzle_aux clues h width) then (print width (build_matrix width h)) else (check_all_perms clues t width));;
+
+
+let puzzle matriz =
+	match matriz with
+	| l::c::[] ->( let lines = l and collum = c in
+		let height = (size_of lines) and width = (size_of collum) in
+		let all_lines = (get_perms lines width) in
+		(check_all_perms collum all_lines width));;
+
+
+let get_perms clues length = (all_perms_line 0 (all_perms clues length));;
+
+
+(*************************************************************************)
+
+
+let seta = puzzle [[[1];[3];[1;1;1];[1];[1]];[[1];[1];[5];[1];[1]]];;
+
+
+let test = puzzle [[[2;1];[2;2];[8];[8];[8];[3;2];[2;4];[3];[1;1];[2;1]]; [[6;2];[7;1];[5];[3];[3];[5];[4;1];[3;2];[3];[5]]];;
